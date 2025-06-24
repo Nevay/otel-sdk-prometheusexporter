@@ -198,7 +198,7 @@ final class PrometheusMetricExporter implements MetricExporter, MetricReaderAwar
         return !$this->closed;
     }
 
-    public function resolveTemporality(InstrumentType $instrumentType, Temporality $preferredTemporality): Temporality {
+    public function resolveTemporality(InstrumentType $instrumentType): Temporality {
         return Temporality::Cumulative;
     }
 
