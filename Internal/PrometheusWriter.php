@@ -119,14 +119,14 @@ final class PrometheusWriter {
 
             $metricFamily->metrics[] = $metric;
 
-            $resourceId = spl_object_id($metric->descriptor->resource);
+            $resourceId = spl_object_id($metric->resource);
             $scopeId = spl_object_id($metric->descriptor->instrumentationScope);
 
             if (!$this->withoutTargetInfo && !isset($resourceLabels[$resourceId]) && $this->format->supportsTargetInfo()) {
-                $this->writeTargetInfo($stream, $metric->descriptor->resource);
+                $this->writeTargetInfo($stream, $metric->resource);
             }
 
-            $resourceLabels[$resourceId] ??= $this->computeConstantLabels($this->constantResourceLabels($metric->descriptor->resource));
+            $resourceLabels[$resourceId] ??= $this->computeConstantLabels($this->constantResourceLabels($metric->resource));
             $constantLabels[$resourceId][$scopeId] ??= $this->computeConstantLabels($this->constantScopeLabel($metric->descriptor->instrumentationScope), $resourceLabels[$resourceId]);
         }
         unset($batch, $resourceLabels, $unitResolver);
@@ -136,7 +136,7 @@ final class PrometheusWriter {
             $this->writeHeader($stream, $metricFamily->name, $metricFamily->unit, $metricFamily->description, $metricFamily->type);
 
             foreach ($metricFamily->metrics as $metric) {
-                $resourceId = spl_object_id($metric->descriptor->resource);
+                $resourceId = spl_object_id($metric->resource);
                 $scopeId = spl_object_id($metric->descriptor->instrumentationScope);
                 $labels = $constantLabels[$resourceId][$scopeId];
 
