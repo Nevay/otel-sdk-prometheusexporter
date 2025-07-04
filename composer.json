@@ -4,7 +4,7 @@
     "keywords": ["opentelemetry", "otel", "sdk", "prometheus"],
     "license": "Apache-2.0",
     "require": {
-        "php-64bit": "^8.1",
+        "php-64bit": "^8.2",
         "ext-mbstring": "*",
         "composer-runtime-api": "^2.0",
         "amphp/amp": "^3.0",
