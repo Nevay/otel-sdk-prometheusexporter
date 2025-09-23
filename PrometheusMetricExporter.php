@@ -58,11 +58,10 @@ final class PrometheusMetricExporter implements MetricExporter, MetricReaderAwar
 
     public function __construct(
         private readonly ?HttpServer $server = null,
-        private readonly bool $withoutUnits = false,
-        private readonly bool $withoutTypeSuffix = false,
         private readonly bool $withoutScopeInfo = false,
         private readonly bool $withoutTargetInfo = false,
         private readonly ?Closure $withResourceConstantLabels = null,
+        private readonly TranslationStrategy $translationStrategy = TranslationStrategy::UnderscoreEscapingWithSuffixes,
         private readonly Aggregation $aggregation = new DefaultAggregation(),
         private readonly LoggerInterface $logger = new NullLogger(),
     ) {
@@ -82,18 +81,30 @@ final class PrometheusMetricExporter implements MetricExporter, MetricReaderAwar
         /** @var AcceptEncoding|null $acceptEncoding */
 
         try {
-            $accept = (new Negotiator())->getBest($request->getHeader('Accept'), [
-                'text/plain;version=0.0.4;charset=utf-8',
-                'text/plain;version=1.0.0;charset=utf-8;escaping=underscores',
-                'text/plain;version=1.0.0;charset=utf-8;escaping=allow-utf-8',
-                'text/plain;version=1.0.0;charset=utf-8;escaping=dots',
-                'text/plain;version=1.0.0;charset=utf-8;escaping=values',
-                'application/openmetrics-text;version=0.0.1;charset=utf-8',
-                'application/openmetrics-text;version=1.0.0;charset=utf-8;escaping=underscores',
-                'application/openmetrics-text;version=1.0.0;charset=utf-8;escaping=allow-utf-8',
-                'application/openmetrics-text;version=1.0.0;charset=utf-8;escaping=dots',
-                'application/openmetrics-text;version=1.0.0;charset=utf-8;escaping=values',
-            ], true);
+            $accept = (new Negotiator())->getBest($request->getHeader('Accept'), match ($this->translationStrategy) {
+                TranslationStrategy::UnderscoreEscapingWithSuffixes,
+                TranslationStrategy::UnderscoreEscapingWithoutSuffixes,
+                    => [
+                        'text/plain;version=0.0.4;charset=utf-8',
+                        'text/plain;version=1.0.0;charset=utf-8;escaping=underscores',
+                        'application/openmetrics-text;version=0.0.1;charset=utf-8',
+                        'application/openmetrics-text;version=1.0.0;charset=utf-8;escaping=underscores',
+                    ],
+                TranslationStrategy::NoUTF8EscapingWithSuffixes,
+                TranslationStrategy::NoTranslation,
+                    => [
+                        'text/plain;version=0.0.4;charset=utf-8',
+                        'text/plain;version=1.0.0;charset=utf-8;escaping=underscores',
+                        'text/plain;version=1.0.0;charset=utf-8;escaping=allow-utf-8',
+                        'text/plain;version=1.0.0;charset=utf-8;escaping=dots',
+                        'text/plain;version=1.0.0;charset=utf-8;escaping=values',
+                        'application/openmetrics-text;version=0.0.1;charset=utf-8',
+                        'application/openmetrics-text;version=1.0.0;charset=utf-8;escaping=underscores',
+                        'application/openmetrics-text;version=1.0.0;charset=utf-8;escaping=allow-utf-8',
+                        'application/openmetrics-text;version=1.0.0;charset=utf-8;escaping=dots',
+                        'application/openmetrics-text;version=1.0.0;charset=utf-8;escaping=values',
+                    ],
+            }, true);
         } catch (InvalidArgumentException | Exception) {}
         $accept ??= new Accept('text/plain;version=0.0.4;charset=utf-8');
 
@@ -126,8 +137,14 @@ final class PrometheusMetricExporter implements MetricExporter, MetricReaderAwar
         }
 
         $writer = new PrometheusWriter(
-            withoutUnits: $this->withoutUnits,
-            withoutTypeSuffix: $this->withoutTypeSuffix,
+            withoutSuffixes: match ($this->translationStrategy) {
+                TranslationStrategy::UnderscoreEscapingWithSuffixes,
+                TranslationStrategy::NoUTF8EscapingWithSuffixes,
+                    => false,
+                TranslationStrategy::UnderscoreEscapingWithoutSuffixes,
+                TranslationStrategy::NoTranslation,
+                    => true,
+            },
             withoutScopeInfo: $this->withoutScopeInfo,
             withoutTargetInfo: $this->withoutTargetInfo,
             withoutJobInfo: true,

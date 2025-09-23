@@ -49,8 +49,7 @@ use const INF;
 final class PrometheusWriter {
 
     public function __construct(
-        private readonly bool $withoutUnits = false,
-        private readonly bool $withoutTypeSuffix = false,
+        private readonly bool $withoutSuffixes = false,
         private readonly bool $withoutScopeInfo = false,
         private readonly bool $withoutTargetInfo = false,
         private readonly bool $withoutJobInfo = false,
@@ -92,18 +91,18 @@ final class PrometheusWriter {
             $typeSuffix = $this->format->typeSuffix($type);
 
             $name = $this->escapingScheme->escapeName($metric->descriptor->name);
-            if ($typeSuffix !== null && str_ends_with($name, $typeSuffix)) {
+            if (!$this->withoutSuffixes && $typeSuffix !== null && str_ends_with($name, $typeSuffix)) {
                 $name = substr($name, 0, -strlen($typeSuffix));
             }
 
-            $unit = !$this->withoutUnits && $metric->descriptor->unit !== null
+            $unit = $metric->descriptor->unit !== null
                 ? $unitResolver->resolve($metric->descriptor->unit)
                 : null;
-            if ($unit !== null && (!str_ends_with($name, $unit) || ($name[~strlen($unit)] ?? '') !== '_')) {
+            if (!$this->withoutSuffixes && $unit !== null && (!str_ends_with($name, $unit) || ($name[~strlen($unit)] ?? '') !== '_')) {
                 $name .= '_';
                 $name .= $unit;
             }
-            if ($typeSuffix !== null && !$this->withoutTypeSuffix) {
+            if (!$this->withoutSuffixes && $typeSuffix !== null) {
                 $name .= $typeSuffix;
             }
 
@@ -209,7 +208,7 @@ final class PrometheusWriter {
             $stream->write(' ');
             $this->writeString($stream, $type->value);
             $stream->write("\n");
-            if (!$this->withoutUnits && $unit !== null) {
+            if ($unit !== null) {
                 $stream->write('# UNIT ');
                 $this->writeString($stream, $name);
                 $stream->write(' ');
@@ -229,7 +228,7 @@ final class PrometheusWriter {
             $stream->write('" ');
             $this->writeString($stream, $type->value);
             $stream->write("\n");
-            if (!$this->withoutUnits && $unit !== null) {
+            if ($unit !== null) {
                 $stream->write('# UNIT "');
                 $this->writeQuoted($stream, $name);
                 $stream->write('" ');
