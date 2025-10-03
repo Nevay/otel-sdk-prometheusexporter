@@ -113,7 +113,7 @@ final class PrometheusWriter {
                 continue;
             }
             if ($metricFamily->description !== $metric->descriptor->description) {
-                $this->logger->warning('Ignoring conflicting description of prometheus metric {name}', ['name' => $name, 'description' => [$metricFamily->type, $type]]);
+                $this->logger->warning('Ignoring conflicting description of prometheus metric {name}', ['name' => $name, 'description' => [$metricFamily->description, $metric->descriptor->description]]);
             }
 
             $metricFamily->metrics[] = $metric;
