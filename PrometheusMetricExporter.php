@@ -77,9 +77,6 @@ final class PrometheusMetricExporter implements MetricExporter, MetricReaderAwar
             return new Response(HttpStatus::SERVICE_UNAVAILABLE);
         }
 
-        /** @var Accept $accept */
-        /** @var AcceptEncoding|null $acceptEncoding */
-
         try {
             $accept = (new Negotiator())->getBest($request->getHeader('Accept'), match ($this->translationStrategy) {
                 TranslationStrategy::UnderscoreEscapingWithSuffixes,
@@ -117,7 +114,7 @@ final class PrometheusMetricExporter implements MetricExporter, MetricReaderAwar
             }
             $acceptEncoding = (new EncodingNegotiator())->getBest($request->getHeader('Accept-Encoding'), $encodings, true);
         } catch (InvalidArgumentException | Exception) {}
-        $acceptEncoding ??= null;
+        $acceptEncoding ??= new AcceptEncoding('identity');
 
         $scrapeTimeout = +$request->getHeader('x-prometheus-scrape-timeout-seconds');
         $cancellation = $scrapeTimeout > 0
@@ -169,7 +166,7 @@ final class PrometheusMetricExporter implements MetricExporter, MetricReaderAwar
         $sink = new InMemoryBuffer(match ($acceptEncoding?->getType()) {
             'gzip' => new CompressingWritableStream($sink, \ZLIB_ENCODING_GZIP),
             'deflate' => new CompressingWritableStream($sink, \ZLIB_ENCODING_RAW),
-            null => $sink,
+            'identity' => $sink,
         }, 1024);
 
         EventLoop::queue(static function(PrometheusWriter $writer, WritableStream $sink, array $metrics): void {
@@ -181,7 +178,9 @@ final class PrometheusMetricExporter implements MetricExporter, MetricReaderAwar
 
         $response = new Response();
         $response->setHeader('Content-Type', $accept->getNormalizedValue());
-        $response->setHeader('Content-Encoding', $acceptEncoding?->getNormalizedValue() ?? []);
+        if ($acceptEncoding->getType() !== 'identity') {
+            $response->setHeader('Content-Encoding', $acceptEncoding->getNormalizedValue());
+        }
         $response->setHeader('Vary', 'Accept, Accept-Encoding');
         $response->setBody($pipe->getSource());
 
