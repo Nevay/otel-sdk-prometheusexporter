@@ -163,7 +163,7 @@ final class PrometheusMetricExporter implements MetricExporter, MetricReaderAwar
         $pipe = new ByteStream\Pipe(4096);
         $sink = $pipe->getSink();
         /** @noinspection PhpComposerExtensionStubsInspection */
-        $sink = new InMemoryBuffer(match ($acceptEncoding?->getType()) {
+        $sink = new InMemoryBuffer(match ($acceptEncoding->getType()) {
             'gzip' => new CompressingWritableStream($sink, \ZLIB_ENCODING_GZIP),
             'deflate' => new CompressingWritableStream($sink, \ZLIB_ENCODING_RAW),
             'identity' => $sink,
