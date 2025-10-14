@@ -121,7 +121,7 @@ final class PrometheusWriter {
             $resourceId = spl_object_id($metric->resource);
             $scopeId = spl_object_id($metric->descriptor->instrumentationScope);
 
-            if (!$this->withoutTargetInfo && !isset($resourceLabels[$resourceId]) && $this->format->supportsTargetInfo()) {
+            if (!$this->withoutTargetInfo && !isset($resourceLabels[$resourceId])) {
                 $this->writeTargetInfo($stream, $metric->resource);
             }
 
@@ -151,7 +151,11 @@ final class PrometheusWriter {
     }
 
     private function writeTargetInfo(WritableStream $stream, Resource $resource): void {
-        $stream->write("# TYPE target info\n# HELP target Target metadata\ntarget_info{");
+        if ($this->format->supportsTargetInfo()) {
+            $stream->write("# TYPE target info\n# HELP target Target metadata\ntarget_info{");
+        } else {
+            $stream->write("# TYPE target_info gauge\n# HELP target_info Target metadata\ntarget_info{");
+        }
         $this->writeLabels($stream, $resource->attributes, $this->jobAttributes($resource));
         $stream->write("} 1\n");
     }
