@@ -41,6 +41,7 @@ use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 use Revolt\EventLoop;
 use Traversable;
+use WeakReference;
 use function extension_loaded;
 use function iterator_to_array;
 
@@ -49,13 +50,50 @@ use function iterator_to_array;
  */
 final class PrometheusMetricExporter implements MetricExporter, MetricReaderAware, RequestHandler {
 
-    private readonly MetricReader $metricReader;
+    /** @var WeakReference<MetricReader>|null */
+    private ?WeakReference $metricReader = null;
 
     private array $metrics = [];
     private int $pending = 0;
 
     private bool $closed = false;
 
+    /**
+     * If the `server` argument is provided, it will be started and stopped by the exporter.
+     * <pre>
+     * $server = SocketHttpServer::createForDirectAccess($logger);
+     * $server->expose('0.0.0.0:9464');
+     * $metricProviderBuilder->addMetricReader(new PullMetricReader(new PrometheusMetricExporter($server)));
+     * </pre>
+     *
+     * Alternatively, the `PrometheusMetricExporter` can be used as {@link RequestHandler} if more
+     * control over the http server is needed, e.g. when exposing the metrics endpoint on the same
+     * port as an application http server.
+     * <pre>
+     * $server = SocketHttpServer::createForDirectAccess($logger);
+     * $server->expose('0.0.0.0:1337');
+     * $errorHandler = new DefaultErrorHandler();
+     * $router = new Router($server, $logger, $errorHandler);
+     *
+     * $prometheusExporter = new PrometheusMetricExporter();
+     * $metricProviderBuilder->addMetricReader(new PullMetricReader($prometheusExporter));
+     * $router->addRoute('GET', '/metrics', $prometheusExporter);
+     *
+     * $server->start($router, $errorHandler);
+     * trapSignal([SIGINT, SIGTERM]);
+     * $server->stop();
+     * </pre>
+     *
+     * @param HttpServer|null $server the server to use for exposing metrics, or `null` if the
+     *        exporter will be registered as request handler
+     * @param bool $withoutScopeInfo whether metrics should be produced without scope labels
+     * @param bool $withoutTargetInfo whether metrics should be produced without a target info
+     *        metric for the resource
+     * @param Closure(string): bool|null $withResourceConstantLabels a closure returning whether a
+     *        resource attribute key should be included as metric attributes
+     * @param TranslationStrategy $translationStrategy configures how metric names are translated
+     *        to prometheus metric names
+     */
     public function __construct(
         private readonly ?HttpServer $server = null,
         private readonly bool $withoutScopeInfo = false,
@@ -69,11 +107,11 @@ final class PrometheusMetricExporter implements MetricExporter, MetricReaderAwar
     }
 
     public function setMetricReader(MetricReader $metricReader): void {
-        $this->metricReader = $metricReader;
+        $this->metricReader = WeakReference::create($metricReader);
     }
 
     public function handleRequest(Request $request): Response {
-        if ($this->closed) {
+        if ($this->closed || !$metricReader = $this->metricReader?->get()) {
             return new Response(HttpStatus::SERVICE_UNAVAILABLE);
         }
 
@@ -118,12 +156,12 @@ final class PrometheusMetricExporter implements MetricExporter, MetricReaderAwar
 
         $scrapeTimeout = +$request->getHeader('x-prometheus-scrape-timeout-seconds');
         $cancellation = $scrapeTimeout > 0
-            ? new TimeoutCancellation(+$scrapeTimeout)
+            ? new TimeoutCancellation($scrapeTimeout)
             : null;
 
         $this->pending++;
         try {
-            $this->metricReader->collect($cancellation);
+            $metricReader->collect($cancellation);
             $metrics = $this->metrics;
         } catch (CancelledException) {
             return new Response(HttpStatus::SERVICE_UNAVAILABLE);
