@@ -151,6 +151,10 @@ final class PrometheusWriter {
     }
 
     private function writeTargetInfo(WritableStream $stream, Resource $resource): void {
+        if (!$resource->attributes->count()) {
+            return;
+        }
+
         if ($this->format->supportsTargetInfo()) {
             $stream->write("# TYPE target info\n# HELP target Target metadata\ntarget_info{");
         } else {
