@@ -2,11 +2,12 @@
 namespace Nevay\OTelSDK\Prometheus\Internal\UnitResolver;
 
 use Nevay\OTelSDK\Prometheus\Internal\UnitResolver;
+use function count;
 use function explode;
 use function preg_replace;
 use function str_starts_with;
+use function strlen;
 use function substr;
-use function substr_replace;
 
 /**
  * @internal
@@ -60,7 +61,6 @@ final class DefaultUnitResolver implements UnitResolver {
         'mo' => ['month', 'months'],
         'y' => ['year', 'years'],
         '%' => ['percent', 'percent'],
-        '1' => ['ratio', 'ratio'],
     ];
 
     private const UNIT_PREFIXES = [
