@@ -108,12 +108,15 @@ final class PrometheusWriter {
 
             $metricFamily = $metricFamilies[$name] ??= new MetricFamily($name, $unit, $metric->descriptor->description, $type, $typeSuffix);
 
-            if ($metricFamily->unit !== $unit || $metricFamily->type !== $type) {
-                $this->logger->error('Dropping conflicting prometheus metric {name}', ['name' => $name, 'units' => [$metricFamily->unit, $unit], 'types' => [$metricFamily->type, $type]]);
+            if ($metricFamily->type !== $type) {
+                $this->logger->error('Dropping conflicting prometheus metric {name}', ['name' => $name, 'type' => $metricFamily->type, 'conflicting_type' => $type]);
                 continue;
             }
+            if ($metricFamily->unit !== $unit) {
+                $this->logger->error('Ignoring conflicting unit of prometheus metric {name}', ['name' => $name, 'unit' => $metricFamily->unit, 'conflicting_unit' => $unit]);
+            }
             if ($metricFamily->description !== $metric->descriptor->description) {
-                $this->logger->warning('Ignoring conflicting description of prometheus metric {name}', ['name' => $name, 'description' => [$metricFamily->description, $metric->descriptor->description]]);
+                $this->logger->warning('Ignoring conflicting description of prometheus metric {name}', ['name' => $name, 'description' => $metricFamily->description, 'conflicting_description' => $metric->descriptor->description]);
             }
 
             $metricFamily->metrics[] = $metric;
