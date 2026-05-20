@@ -15,7 +15,7 @@ final class OpenMetricsFormat implements ExpositionFormat {
         /** @var Exemplar|null $candidate */
         $candidate = null;
         foreach ($exemplars as $exemplar) {
-            if (!$candidate || $candidate->value < $exemplar->value) {
+            if (!$candidate || $candidate->timestamp < $exemplar->timestamp) {
                 $candidate = $exemplar;
             }
         }
