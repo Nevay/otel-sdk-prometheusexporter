@@ -86,19 +86,19 @@ final class PrometheusMetricExporter implements MetricExporter, MetricReaderAwar
      *
      * @param HttpServer|null $server the server to use for exposing metrics, or `null` if the
      *        exporter will be registered as request handler
-     * @param bool $withoutScopeInfo whether metrics should be produced without scope labels
-     * @param bool $withoutTargetInfo whether metrics should be produced without a target info
-     *        metric for the resource
-     * @param Closure(string): bool|null $withResourceConstantLabels a closure returning whether a
+     * @param bool $scopeInfoEnabled whether metrics should be produced with scope labels
+     * @param bool $targetInfoEnabled whether metrics should be produced with a target info metric
+     *        for the resource
+     * @param Closure(string): bool|null $resourceConstantLabels a closure returning whether a
      *        resource attribute key should be included as metric attributes
      * @param TranslationStrategy $translationStrategy configures how metric names are translated
      *        to prometheus metric names
      */
     public function __construct(
         private readonly ?HttpServer $server = null,
-        private readonly bool $withoutScopeInfo = false,
-        private readonly bool $withoutTargetInfo = false,
-        private readonly ?Closure $withResourceConstantLabels = null,
+        private readonly bool $scopeInfoEnabled = true,
+        private readonly bool $targetInfoEnabled = true,
+        private readonly ?Closure $resourceConstantLabels = null,
         private readonly TranslationStrategy $translationStrategy = TranslationStrategy::UnderscoreEscapingWithSuffixes,
         private readonly Aggregation $aggregation = new DefaultAggregation(),
         private readonly LoggerInterface $logger = new NullLogger(),
@@ -172,19 +172,19 @@ final class PrometheusMetricExporter implements MetricExporter, MetricReaderAwar
         }
 
         $writer = new PrometheusWriter(
-            withoutSuffixes: match ($this->translationStrategy) {
+            suffixesEnabled: match ($this->translationStrategy) {
                 TranslationStrategy::UnderscoreEscapingWithSuffixes,
                 TranslationStrategy::NoUTF8EscapingWithSuffixes,
-                    => false,
+                    => true,
                 TranslationStrategy::UnderscoreEscapingWithoutSuffixes,
                 TranslationStrategy::NoTranslation,
-                    => true,
+                    => false,
             },
-            withoutScopeInfo: $this->withoutScopeInfo,
-            withoutTargetInfo: $this->withoutTargetInfo,
-            withoutJobInfo: true,
-            withoutTimestamps: true,
-            withResourceConstantLabels: $this->withResourceConstantLabels,
+            scopeInfoEnabled: $this->scopeInfoEnabled,
+            targetInfoEnabled: $this->targetInfoEnabled,
+            jobInfoEnabled: false,
+            timestampsEnabled: false,
+            resourceConstantLabels: $this->resourceConstantLabels,
             escapingScheme: match ($accept->getParameter('escaping', 'underscores')) {
                 'allow-utf-8' => new AllowUtf8Escaping(),
                 'underscores' => new UnderscoresEscaping(),

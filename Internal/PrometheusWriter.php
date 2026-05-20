@@ -49,12 +49,12 @@ use const INF;
 final class PrometheusWriter {
 
     public function __construct(
-        private readonly bool $withoutSuffixes = false,
-        private readonly bool $withoutScopeInfo = false,
-        private readonly bool $withoutTargetInfo = false,
-        private readonly bool $withoutJobInfo = false,
-        private readonly bool $withoutTimestamps = false,
-        private readonly ?Closure $withResourceConstantLabels = null,
+        private readonly bool $suffixesEnabled = true,
+        private readonly bool $scopeInfoEnabled = true,
+        private readonly bool $targetInfoEnabled = true,
+        private readonly bool $jobInfoEnabled = true,
+        private readonly bool $timestampsEnabled = true,
+        private readonly ?Closure $resourceConstantLabels = null,
         private readonly EscapingScheme $escapingScheme = new UnderscoresEscaping(),
         private readonly ExpositionFormat $format = new PrometheusFormat(),
         private readonly UnitResolver $unitResolver = new DefaultUnitResolver(),
@@ -91,18 +91,18 @@ final class PrometheusWriter {
             $typeSuffix = $this->format->typeSuffix($type);
 
             $name = $this->escapingScheme->escapeName($metric->descriptor->name);
-            if (!$this->withoutSuffixes && $typeSuffix !== null && str_ends_with($name, $typeSuffix)) {
+            if ($this->suffixesEnabled && $typeSuffix !== null && str_ends_with($name, $typeSuffix)) {
                 $name = substr($name, 0, -strlen($typeSuffix));
             }
 
             $unit = $metric->descriptor->unit !== null
                 ? $unitResolver->resolve($metric->descriptor->unit)
                 : null;
-            if (!$this->withoutSuffixes && $unit !== null && (!str_ends_with($name, $unit) || ($name[~strlen($unit)] ?? '') !== '_')) {
+            if ($this->suffixesEnabled && $unit !== null && (!str_ends_with($name, $unit) || ($name[~strlen($unit)] ?? '') !== '_')) {
                 $name .= '_';
                 $name .= $unit;
             }
-            if (!$this->withoutSuffixes && $typeSuffix !== null) {
+            if ($this->suffixesEnabled && $typeSuffix !== null) {
                 $name .= $typeSuffix;
             }
 
@@ -124,7 +124,7 @@ final class PrometheusWriter {
             $resourceId = spl_object_id($metric->resource);
             $scopeId = spl_object_id($metric->descriptor->instrumentationScope);
 
-            if (!$this->withoutTargetInfo && !isset($resourceLabels[$resourceId])) {
+            if ($this->targetInfoEnabled && !isset($resourceLabels[$resourceId])) {
                 $this->writeTargetInfo($stream, $metric->resource);
             }
 
@@ -282,7 +282,7 @@ final class PrometheusWriter {
         }
         $stream->write(' ');
         $this->writeNumber($stream, $value);
-        if (!$this->withoutTimestamps) {
+        if ($this->timestampsEnabled) {
             $stream->write(' ');
             $this->writeString($stream, $this->format->formatTimestamp($timestamp));
         }
@@ -456,7 +456,7 @@ final class PrometheusWriter {
     }
 
     private function jobAttributes(Resource $resource): Traversable {
-        if ($this->withoutJobInfo) {
+        if (!$this->jobInfoEnabled) {
             return;
         }
 
@@ -470,9 +470,9 @@ final class PrometheusWriter {
     }
 
     private function constantResourceLabels(Resource $resource): iterable {
-        if ($this->withResourceConstantLabels) {
+        if ($this->resourceConstantLabels) {
             foreach ($resource->attributes as $key => $value) {
-                if (($this->withResourceConstantLabels)($key)) {
+                if (($this->resourceConstantLabels)($key)) {
                     yield $key => $value;
                 }
             }
@@ -481,7 +481,7 @@ final class PrometheusWriter {
     }
 
     private function constantScopeLabel(InstrumentationScope $scope): iterable {
-        if ($this->withoutScopeInfo) {
+        if (!$this->scopeInfoEnabled) {
             return;
         }
 
