@@ -18,7 +18,7 @@ use Nevay\OTelSDK\Prometheus\Internal\ExpositionFormat\PrometheusFormat;
 use Nevay\OTelSDK\Prometheus\Internal\Struct\MetricFamily;
 use Nevay\OTelSDK\Prometheus\Internal\Struct\MetricLabels;
 use Nevay\OTelSDK\Prometheus\Internal\UnitResolver\CachedUnitResolver;
-use Nevay\OTelSDK\Prometheus\Internal\UnitResolver\DefaultUnitResolver;
+use Nevay\OTelSDK\Prometheus\Internal\UnitResolver\UcumUnitResolver;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 use Traversable;
@@ -57,7 +57,7 @@ final class PrometheusWriter {
         private readonly ?Closure $resourceConstantLabels = null,
         private readonly EscapingScheme $escapingScheme = new UnderscoresEscaping(),
         private readonly ExpositionFormat $format = new PrometheusFormat(),
-        private readonly UnitResolver $unitResolver = new DefaultUnitResolver(),
+        private readonly UnitResolver $unitResolver = new UcumUnitResolver(),
         private readonly LoggerInterface $logger = new NullLogger(),
     ) {}
 

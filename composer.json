@@ -15,6 +15,7 @@
         "revolt/event-loop": "^1.0",
         "tbachert/otel-sdk-common": "^0.1",
         "tbachert/otel-sdk-metrics": "^0.1",
+        "tbachert/ucum": "^1.0",
         "willdurand/negotiation": "^3.0"
     },
     "autoload": {

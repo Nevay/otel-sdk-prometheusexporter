@@ -2,19 +2,16 @@
 namespace Nevay\OTelSDK\Prometheus\Internal\UnitResolver;
 
 use Nevay\OTelSDK\Prometheus\Internal\UnitResolver;
-use function count;
-use function explode;
-use function preg_replace;
-use function str_starts_with;
-use function strlen;
-use function substr;
+use Nevay\Ucum\Unit;
+use Nevay\Ucum\UnitException;
+use function abs;
 
 /**
  * @internal
  */
-final class DefaultUnitResolver implements UnitResolver {
+final class UcumUnitResolver implements UnitResolver {
 
-    private const BASE_UNITS = [
+    private const UNITS = [
         // https://unitsofmeasure.org/ucum#section-Base-Units
         'm' => ['meter', 'meters'],
         's' => ['second', 'seconds'],
@@ -51,9 +48,8 @@ final class DefaultUnitResolver implements UnitResolver {
         'bit' => ['bit', 'bits'],
         'By' => ['byte', 'bytes'],
         'Bd' => ['baud', 'bauds'],
-    ];
 
-    private const UNITS = [
+        # https://unitsofmeasure.org/ucum#iso1000
         'min' => ['minute', 'minutes'],
         'h' => ['hour', 'hours'],
         'd' => ['day', 'days'],
@@ -63,7 +59,7 @@ final class DefaultUnitResolver implements UnitResolver {
         '%' => ['percent', 'percent'],
     ];
 
-    private const UNIT_PREFIXES = [
+    private const PREFIXES = [
         # https://unitsofmeasure.org/ucum#section-Prefixes
         'Q' => 'quetta',
         'R' => 'ronna',
@@ -101,46 +97,67 @@ final class DefaultUnitResolver implements UnitResolver {
         'Qi' => 'quebi',
     ];
 
-    /**
-     * @param array<string, array{0: string, 1: string}> $baseUnits
-     * @param array<string, array{0: string, 1: string}> $units
-     * @param array<string, string> $prefixes
-     */
     public function __construct(
-        private readonly array $baseUnits = self::BASE_UNITS,
         private readonly array $units = self::UNITS,
-        private readonly array $prefixes = self::UNIT_PREFIXES,
+        private readonly array $prefixes = self::PREFIXES,
     ) {}
 
     public function resolve(string $unit): ?string {
-        $unit = preg_replace('/\{[^}]*+}/', '', $unit);
-        $parts = explode('/', $unit);
-        if ($parts[0] === '') {
+        if (isset($this->units[$unit])) {
+            return $this->units[$unit][1];
+        }
+
+        try {
+            $parsed = Unit::parse($unit);
+        } catch (UnitException) {
+            return $unit;
+        }
+
+        $s = '';
+        foreach ($parsed->atoms() as $atom) {
+            if ($atom->unit === '1') {
+                continue;
+            }
+
+            match (true) {
+                $s !== '' && $atom->exponent >= 0 => $s .= '_times_',
+                $s !== '' && $atom->exponent < 0 => $s .= '_per_',
+                $s === '' && $atom->exponent < 0 => $s .= 'per_',
+                default => null,
+            };
+
+            $exponent = abs($atom->exponent);
+            if ($exponent === 2 || $exponent === 3) {
+                try {
+                    Unit::convert($atom->unit, 'm');
+                    $s .= match ($exponent) {
+                        2 => 'square_',
+                        3 => 'cubic_',
+                    };
+                    $exponent = 1;
+                } catch (UnitException) {}
+            }
+
+            if ($atom->prefix !== null) {
+                $s .= $this->prefixes[$atom->prefix] ?? $atom->prefix;
+            }
+            $s .= $this->units[$atom->unit][$atom->exponent >= 0] ?? $atom->unit;
+
+            if ($exponent === 2) {
+                $s .= '_squared';
+                $exponent = 1;
+            }
+
+            if ($exponent !== 1) {
+                $s .= '_pow_';
+                $s .= $exponent;
+            }
+        }
+
+        if ($s === '') {
             return null;
         }
 
-        $unit = $this->unit($parts[0], 1);
-        for ($i = 1; $i < count($parts); $i++) {
-            if ($parts[$i] !== '') {
-                $unit .= '_per_';
-                $unit .= $this->unit($parts[$i], 0);
-            }
-        }
-
-        return $unit;
-    }
-
-    private function unit(string $unit, int $index): string {
-        if (($u = $this->baseUnits[$unit] ?? $this->units[$unit] ?? null) !== null) {
-            return $u[$index];
-        }
-
-        foreach ($this->prefixes as $prefix => $value) {
-            if (str_starts_with($unit, $prefix) && ($baseUnit = $this->baseUnits[substr($unit, strlen($prefix))] ?? null) !== null) {
-                return $value . $baseUnit[$index];
-            }
-        }
-
-        return $unit;
+        return $s;
     }
 }
