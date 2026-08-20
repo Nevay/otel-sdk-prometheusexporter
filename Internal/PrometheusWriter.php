@@ -230,7 +230,7 @@ final class PrometheusWriter {
                 $stream->write('# HELP ');
                 $this->writeString($stream, $name);
                 $stream->write(' ');
-                $this->writeString($stream, $description);
+                $this->writeQuoted($stream, $description);
                 $stream->write("\n");
             }
         } else {
@@ -250,7 +250,7 @@ final class PrometheusWriter {
                 $stream->write('# HELP "');
                 $this->writeQuoted($stream, $name);
                 $stream->write('" ');
-                $this->writeString($stream, $description);
+                $this->writeQuoted($stream, $description);
                 $stream->write("\n");
             }
         }
